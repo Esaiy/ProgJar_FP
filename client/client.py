@@ -14,6 +14,7 @@ PORT = 5000
 
 socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket_client.connect((HOST, PORT))
+
     
 class Account:
     def __init__ (self, id, name, password):
