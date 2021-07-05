@@ -37,8 +37,9 @@ class Game(Thread):
         header += str(len(dataRequest)).encode('utf-8') + b'\n'
         self.socket_client.sendall(header + dataRequest)
 
-    def __init__(self, socket_client = None):
+    def __init__(self, socket_client = None, id = 'Hello'):
         Thread.__init__(self)
+        self.id = id
         self.socket_client = socket_client
 
     def updateDefBoard(self, board):
@@ -60,9 +61,9 @@ class Game(Thread):
                     if self.inAtkBoard(location):
                         col = int((location[0] - MARGIN_LEFT_ATTACK) // SQ_SIZE)
                         row = int((location[1] - MARGIN_TOP) // SQ_SIZE)
-                        print(col, row)
+                        # print(col, row)
                         self.sendStatus('atkBoard', (col, row))
-                        print(self.gs.attackBoard)
+                        # print(self.gs.attackBoard)
             
             
             self.drawAttackState(self.screen, self.gs)
@@ -78,7 +79,7 @@ class Game(Thread):
         font = p.font.SysFont('Consolas', 30)
         while self.placeShipTime:
             seconds=(p.time.get_ticks()-start_ticks) // 1000
-            if seconds > 5:
+            if seconds > 20:
                 self.placeShipTime = False
                 print("Time Up")
                 break
@@ -196,6 +197,7 @@ class Game(Thread):
 
     def run(self):
         p.init()
+        p.display.set_caption(self.id)
         self.clock = p.time.Clock()
         self.screen = p.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
         self.screen.fill(p.Color('white'))

@@ -59,6 +59,8 @@ class RoomManager():
         print(self.room)
         print(self.room.get(id))
         if self.room.get(id):
+            if len(self.room[id]) == 2:
+                return 'failed'
             self.room[id].append(account)
             self.playgame(id)
             return 'success'

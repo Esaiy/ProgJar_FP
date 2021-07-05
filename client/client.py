@@ -206,7 +206,7 @@ def read_message(myaccount):
                 room = 1
 
         elif responseType == 'play':
-            game = GameMain.Game(socket_client)
+            game = GameMain.Game(socket_client, myaccount.id)
             game.start()
 
         elif responseType == 'updateBoard':
@@ -216,9 +216,12 @@ def read_message(myaccount):
                 game.updateDefBoard(data[2])
 
         elif responseType == 'stop':
-            print('<App>: {} Win the game'.format(data[1]))
             game.setAttackTime(False)
-            game.join()             
+            game.join()
+            print('<App>: {} Win the game'.format(data[1]))
+            if(data[1] != myaccount.id):
+                print('You Lose')
+            print()
 
 def dasboard(status, myAccount):
     header_page()
