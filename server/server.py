@@ -1,6 +1,10 @@
 import socket
 import pickle
+from sys import platform
 import threading
+import random
+
+from pygame.event import peek
 
 buff_size = 65535
 HOST = '0.0.0.0'
@@ -38,7 +42,94 @@ class AccountManager():
         print("Account " + account.id + " disconnected")
         del self.online[account.id]
 
-class Account:
+class RoomManager():
+    def __init__(self):
+        self.room = {}
+        self.gameManager = {}
+    def create_room(self, account):
+        while True:
+            id = random.randint(10000,99999)
+            if self.room.get(id, None) == None:
+                self.room[id] = [account]
+                break
+        print(id)
+        return id
+    def join_room(self, account, id):
+        print(type(id))
+        print(self.room)
+        print(self.room.get(id))
+        if self.room.get(id):
+            if len(self.room[id]) == 2:
+                return 'failed'
+            self.room[id].append(account)
+            self.playgame(id)
+            return 'success'
+        else:
+            return 'failed'
+    def playgame(self, id):
+        self.gameManager[id] = GameManager(self.room[id])
+        return
+    def finished(self, id):
+        del self.gameManager[id]
+        del self.room[id]
+
+class GameManager():
+    def __init__(self, room):
+        self.room = room
+        self.player1 = (room[0], accountManager.check_online(room[0])[0])
+        self.player2 = (room[1], accountManager.check_online(room[1])[0])
+    def sendPlay(self):
+        response = dict()
+        responseData = pickle.dumps(response)
+        responseHeader = get_response_header('play', len(responseData))
+        self.player1[1].sendall(responseHeader + responseData)
+        self.player2[1].sendall(responseHeader + responseData)
+        return
+    def defBoard(self, account, board):
+        print(board)
+        if account == self.room[0]:
+            self.board1 = board
+            self.counter1 = 14
+        else:
+            self.board2 = board
+            self.counter2 = 14
+    def atkBoard(self, account, row, col):
+        if account == self.room[0]:
+            if self.board2[row][col] < 2:
+                self.counter2 -= self.board2[row][col] 
+                self.board2[row][col] += 2
+                self.sendBoard(self.player2[1], self.board2, 'def')
+                self.sendBoard(self.player1[1], self.board2, 'atk')  
+            if self.counter2 == 0:
+                self.sendResult(self.player1[0])
+                
+        else:
+            if self.board1[row][col] < 2:
+                self.counter1 -= self.board2[row][col] 
+                self.board1[row][col] += 2
+                self.sendBoard(self.player1[1], self.board1, 'def')
+                self.sendBoard(self.player2[1], self.board1, 'atk')  
+            if self.counter1 == 0:
+                self.sendResult(self.player2[0])
+
+    def sendBoard(self, socket_cli, board, status):
+        response = dict()
+        response[1] = status
+        response[2] = board
+        responseData = pickle.dumps(response)
+        responseHeader = get_response_header('updateBoard', len(responseData))
+        socket_cli.sendall(responseHeader + responseData)
+    
+    def sendResult(self, winner):
+        response = dict()
+        response[1] = winner.id
+        responseData = pickle.dumps(response)
+        responseHeader = get_response_header('stop', len(responseData))
+        self.player1[1].sendall(responseHeader + responseData)
+        self.player2[1].sendall(responseHeader + responseData)
+
+            
+class Account():
     def __init__ (self, id, name, password):
         self.id = id
         self.name = name
@@ -64,11 +155,12 @@ def parseRequest(request):
 
 def commandHandler(socket_client, address_client):
     currentAccount = None
+    myRoom = None
     while True:
         request = socket_client.recv(buff_size)
         if request:
             requestType, lenData, data = parseRequest(request)
-            print(lenData)
+            # print(requestType, lenData)
             dataRemain = lenData - len(data)
             
             while dataRemain > 0:
@@ -145,6 +237,45 @@ def commandHandler(socket_client, address_client):
                 filedata = data[2]
                 send_file(currentAccount, destination, filename, filedata, socket_client)
 
+            elif requestType == 'createRoom':
+                roomId = roomManager.create_room(currentAccount)
+                response = dict()
+                response[1] = 'success'
+                response[2] = 'Created Room with id ' + str(roomId)
+                myRoom = roomId
+                print(roomId)
+
+                responseData = pickle.dumps(response)
+                responseHeader = get_response_header(requestType, len(responseData))
+                socket_client.sendall(responseHeader + responseData)
+            
+            elif requestType == 'joinRoom':
+                roomId = int(data[0])
+                response[1] = roomManager.join_room(currentAccount, roomId)
+                print(roomId, response[1])
+                if response[1] == 'success':
+                    response[2] = 'Success joined room ' + str(roomId)
+                    myRoom = roomId
+                    gm = roomManager.gameManager[roomId]
+                    gm.sendPlay()
+                else:
+                    response[2] = 'Room not found'
+                
+                responseData = pickle.dumps(response)
+                responseHeader = get_response_header(requestType, len(responseData))
+                socket_client.sendall(responseHeader + responseData)
+
+            elif requestType == 'defBoard':
+                board = data[0]
+                gm = roomManager.gameManager[roomId]
+                gm.defBoard(currentAccount, board)
+
+            elif requestType == 'atkBoard':
+                row = data[0]
+                col = data[1]
+                gm = roomManager.gameManager[roomId]
+                gm.atkBoard(currentAccount, col, row)
+
         else:
             if currentAccount:
                 accountManager.set_disconnected(currentAccount)
@@ -215,11 +346,13 @@ try:
 except:
     accountManager = AccountManager()
 
+roomManager = RoomManager()
 def main():
     socket_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_server.bind((HOST, PORT))
     socket_server.listen(5)
     
+    print('Server started')
     try:
         while True:
             socket_client, address_client = socket_server.accept()
