@@ -13,10 +13,54 @@ class GameState():
             ['--','--','--','--','--','--','--','--'],
         ]
         self.state = 'placeship'
-
+        
         self.defenseBoard = [
-            
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
         ]
+
+        self.attackBoard = [
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+        ]
+
+    
+    def getFinalBoard(self):
+        tempBoard = [
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+        ]
+        for r in range(DIMENSION):
+            for c in range(DIMENSION):
+                piece = self.board[r][c]
+                if piece != '--':
+                    w = int(piece[0])
+                    if piece[1] == 'v':
+                        for i in range(w):
+                            tempBoard[i + r][c] = 1
+                    elif piece[1] == 'h':
+                        for i in range(w):
+                            tempBoard[r][i + c] = 1
+        return tempBoard
+
 
     def isCollide(self, board):
         tempBoard = [

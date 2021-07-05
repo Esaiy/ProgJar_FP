@@ -7,6 +7,7 @@ import ntpath
 from getpass import getpass
 from tkinter import Tk # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
+import GameMain
 
 buff_size = 65535
 HOST = '127.0.0.1'
@@ -14,7 +15,7 @@ PORT = 5000
 
 socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket_client.connect((HOST, PORT))
-
+game = None
     
 class Account:
     def __init__ (self, id, name, password):
@@ -107,11 +108,17 @@ def sendfile(args):
     return
 
 def playgame(args):
+    # print(roomStatus)
     roomCommand = args[1] if len(args) > 1 else input('<App>: Create or Join room? (create|join)\n')
     if(roomCommand == 'create'):
-        print("Create")
+        dataRequest = pickle.dumps(tuple())
+        headerRequest = get_request_header('createRoom', len(dataRequest))
+        socket_client.sendall(headerRequest + dataRequest)
     elif (roomCommand == 'join'):
-        print('Join the game')
+        roomId = args[2] if len(args) > 2 else input('<App>: Input room id:\n')
+        dataRequest = pickle.dumps((roomId,))
+        headerRequest = get_request_header('joinRoom', len(dataRequest))
+        socket_client.sendall(headerRequest + dataRequest)
     return
 
 def commandError(args):
@@ -135,7 +142,7 @@ def read_message(myaccount):
     while True:
         response = socket_client.recv(buff_size)
         responseType, lenData, data = parseRequest(response)
-
+        # print(responseType)
         dataRemain = lenData - len(data)
         while dataRemain > 0:
             response = socket_client.recv(buff_size)
@@ -181,9 +188,37 @@ def read_message(myaccount):
 
                 f = open(myaccount.id + '/' + filename, 'wb')
                 f.write(filedata)
-                f.close()
-                
+                f.close()                
             print()
+
+        elif responseType == 'createRoom':
+            if data[1] == 'failed':
+                print("<App>: {}".format(data[2]))
+            else:
+                print("<App>: {}".format(data[2]))
+                hehe = True
+        
+        elif responseType == 'joinRoom':
+            if data[1] == 'failed':
+                print("<App>: {}".format(data[2]))
+            else:
+                print("<App>: {}".format(data[2]))
+                room = 1
+
+        elif responseType == 'play':
+            game = GameMain.Game(socket_client)
+            game.start()
+
+        elif responseType == 'updateBoard':
+            if data[1] == 'atk':
+                game.updateAtkBoard(data[2])
+            else:
+                game.updateDefBoard(data[2])
+
+        elif responseType == 'stop':
+            print('<App>: {} Win the game'.format(data[1]))
+            game.setAttackTime(False)
+            game.join()             
 
 def dasboard(status, myAccount):
     header_page()
