@@ -105,7 +105,7 @@ class GameManager():
                 
         else:
             if self.board1[row][col] < 2:
-                self.counter1 -= self.board2[row][col] 
+                self.counter1 -= self.board1[row][col] 
                 self.board1[row][col] += 2
                 self.sendBoard(self.player1[1], self.board1, 'def')
                 self.sendBoard(self.player2[1], self.board1, 'atk')  
