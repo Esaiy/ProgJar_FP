@@ -1,5 +1,6 @@
 from threading import Thread
 from tkinter import *
+from tkinter import ttk
 from tkinter import font
 from tkinter import messagebox
 from functools import WRAPPER_ASSIGNMENTS, partial
@@ -169,40 +170,74 @@ class GameInterface:
             self.current_frame.grid_forget()
 
     def show_chat_interface(self, parent_frame):
+        tab_control = ttk.Notebook(parent_frame)
+        chat_tab = self.show_chat_tab(tab_control)
+        friend_tab = self.show_friend_tab(tab_control)
+        tab_control.add(chat_tab, text ='Chat')
+        tab_control.add(friend_tab, text ='All User')
+        tab_control.pack(expand = 1, fill ="both")
+
+    def show_friend_tab(self, parent_frame):
         frame = Frame(parent_frame, bg="grey")
         frame.pack(fill=BOTH, expand=True)
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(0, weight=4)
-        frame.rowconfigure(1, weight=1)
+        
+        scrollbar = Scrollbar(frame)
+        scrollbar.pack( side = RIGHT, fill = Y )
 
+        self.mylist = Text(frame, yscrollcommand = scrollbar.set, wrap=WORD, width=35, height=40, bd=5)
+        self.mylist.insert(END, "<mr.a> Seseorang" + "\n")
+        self.mylist.insert(END, "<mr.a> Seseorang" + "\n")
+        self.mylist.insert(END, "<mr.a> Seseorang" + "\n")
+        self.mylist.insert(END, "<mr.a> Seseorang" + "\n")
+        self.mylist.insert(END, "<mr.a> Seseorang" + "\n")
+
+        self.mylist.pack(side=LEFT, fill= BOTH, expand=True)
+        scrollbar.config( command = self.mylist.yview )
+
+        return frame
+        
+
+    def show_chat_tab(self, parent_frame):
+        frame = Frame(parent_frame, bg="grey")
+        frame.pack(fill=BOTH, expand=True)
+        frame.columnconfigure(0, weight=3)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=8)
+        frame.rowconfigure(2, weight=1)
+
+        #label
+        message_label = Label(frame, text="Chat", font=font.Font(size=16, weight='bold'))
+        message_label.grid(row=0, column=0, columnspan=2, sticky="nswe")
+
+        # message frame
         message_frame = Frame(frame)
-        message_frame.grid(row=0, column=0, padx=0)
+        message_frame.grid(row=1, column=0, columnspan=2, sticky="snew")
 
-        message_label = Label(message_frame, text="Chat", font=font.Font(size=16, weight='bold'))
-        message_label.pack()
         scrollbar = Scrollbar(message_frame)
         scrollbar.pack( side = RIGHT, fill = Y )
 
         self.mylist = Text(message_frame, yscrollcommand = scrollbar.set, wrap=WORD, width=35, height=40, bd=5)
-        # for line in range(100):
-        #     self.mylist.insert(END, "This is line numberadfadfasdf " + str(line) + "\n")
 
         self.mylist.pack(side=LEFT, fill= BOTH, expand=True)
         scrollbar.config( command = self.mylist.yview )
         
-        #input frame
+        # #input frame
         input_frame = Frame(frame)
-        input_frame.grid(row=1, column=0, padx=0)
+        input_frame.grid(row=2, column=0, columnspan=2, sticky="snew")
         input_frame.columnconfigure(0, weight=3)
         input_frame.columnconfigure(1, weight=1)
-            #entry  #button
+        #entry + button
         entry = Entry(input_frame, bd=5)
-        entry.grid(row=0, column=0)
+        entry.grid(row=0, column=0, sticky="snew")
         button = Button(input_frame, text="Send", command=partial(
             self.send_chat,
             entry
         ))
-        button.grid(row=0, column=1)
+        button.grid(row=0, column=1, sticky="snew")
+
+        return frame
+
 
     def new_line(self, message):
         self.mylist.insert(END, message + "\n")
