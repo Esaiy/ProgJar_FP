@@ -16,6 +16,8 @@ class Chat:
         self.HOST = '127.0.0.1'
         self.PORT = 5000
 
+        self.account = None
+
         self.socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket_client.connect((self.HOST, self.PORT))
 
@@ -25,8 +27,15 @@ class Chat:
         else:
             _ = os.system('clear')
 
+    def parseRequest(self, request):
+        splitRequest = (request.split(b'\n', 2))
+        requestType = splitRequest[0].decode('utf-8')
+        lenData = int(splitRequest[1].decode('utf-8'))
+        data = splitRequest[2]
+        return requestType, lenData, data
+
     def header_page(self):
-        self.clear()
+        # self.clear()
         print('Welcome to Esaiyy Chat')
         print('==============================')
 
@@ -58,12 +67,25 @@ class Chat:
     def chat(self, args):
         data = dict()
 
-        data[0] = args[1] if len(args) > 1 else input('<App>: Send to (use [user_id] or bcast) :\n')
-        data[1] = input('<App>: Type your message :\n')
+        data[0] = "bcast"
+        data[1] = args
 
         dataRequest = pickle.dumps((data,))
         headerRequest = self.get_request_header('chat', len(dataRequest))
-        self.socket_client.send(headerRequest + dataRequest)    
+        self.socket_client.send(headerRequest + dataRequest)
+        return
+
+    def chat_game(self, message):
+        data = dict()
+
+        data[0] = 'bcast'
+        data[1] = message
+
+        print(data)
+
+        dataRequest = pickle.dumps((data,))
+        headerRequest = self.get_request_header('chat', len(dataRequest))
+        self.socket_client.send(headerRequest + dataRequest)
         return
 
     def add_friend(self, args):
@@ -107,31 +129,90 @@ class Chat:
     def read_message(self):
         while True:
             response = self.socket_client.recv(self.buff_size)
-            response = pickle.loads(response)
+            responseType, lenData, data = self.parseRequest(response)
+            dataRemain = lenData - len(data)
+            while dataRemain > 0:
+                response = self.socket_client.recv(self.buff_size)
+                data += response
+                dataRemain -= len(response)
 
-            if response[0] == 'add_friend':
-                if response[1] == 'success':
-                    print('<App>: {} now added to your friend list'.format(response[2].id))
+            data = pickle.loads(data)
+
+            if responseType == 'addfriend':
+                if data[1] == 'success':
+                    print('<App>: {} now added to your friend list'.format(data[2].id))
                 else:
                     print('<App>: Cannot add user!')
                 print()
 
-            elif response[0] == 'friend_list':
+            elif responseType == 'friendlist':
                 print('<App>:\n== Your Friend ==')
-                if response[1]:
-                    for idx, user in enumerate(response[1]):
+                if data[1]:
+                    for idx, user in enumerate(data[1]):
                         print('  {}. {}'.format(idx + 1, user))
                 else:
                     print('No one in your friend list') 
                 print()             
             
-            elif response[0] == 'chat':
-                if response[1] == 'failed':
-                    print("<App>: {}".format(response[2]))
+            elif responseType == 'chat':
+                if data[1] == 'failed':
+                    print("<App>: {}".format(data[2]))
                 else:
-                    senderid, sendername, message = response[2]
+                    senderid, sendername, message = data[2]
+                    self.interface.new_line("<{}> {}: {}".format(senderid, sendername, message))
                     print("<{}> {}: {}".format(senderid, sendername, message))
                 print()
+
+            # elif responseType == 'sendfile':
+            #     if data[1] == 'failed':
+            #         print("<App>: {}".format(data[2]))
+            #     else:
+            #         senderid, sendername, filename, filedata = data[2]
+            #         print("<App>: <{}> {} send you a file ".format(senderid, sendername))
+                    
+            #         dir = os.listdir(os.getcwd())
+            #         if not(myaccount.id in dir):
+            #             os.mkdir(myaccount.id)
+
+            #         f = open(myaccount.id + '/' + filename, 'wb')
+            #         f.write(filedata)
+            #         f.close()                
+            #     print()
+
+            # elif responseType == 'createRoom':
+            #     if data[1] == 'failed':
+            #         print("<App>: {}".format(data[2]))
+            #     else:
+            #         print("<App>: {}".format(data[2]))
+            #         hehe = True
+            
+            # elif responseType == 'joinRoom':
+            #     if data[1] == 'failed':
+            #         print("<App>: {}".format(data[2]))
+            #     else:
+            #         print("<App>: {}".format(data[2]))
+            #         room = 1
+
+            # elif responseType == 'play':
+            #     game = GameMain.Game(socket_client, myaccount.id)
+            #     game.start()
+
+            # elif responseType == 'updateBoard':
+            #     if data[1] == 'atk':
+            #         game.updateAtkBoard(data[2])
+            #     else:
+            #         game.updateDefBoard(data[2])
+
+            # elif responseType == 'stop':
+            #     game.setAttackTime(False)
+            #     game.join()
+            #     print('<App>: {} Win the game'.format(data[1]))
+            #     if(data[1] != myaccount.id):
+            #         print('You Lose')
+            #     print()
+
+    def set_interface(self, interface):
+        self.interface = interface
 
     def dasboard(self, status, myAccount):
         self.header_page()
@@ -151,16 +232,16 @@ class Chat:
             self.socket_client.close()
             sys.exit()
 
-    def register(self, status):
+    def register(self, id, name, password):
         try:
-            self.header_page()
-            print('Register an account\n')
-            print(status, end='')
+            # self.header_page()
+            # print('Register an account\n')
 
-            id = input('Enter username: ')
-            name = input('Enter your name: ')
-            password = getpass('Enter password: ')
+            # id = input('Enter username: ')
+            # name = input('Enter your name: ')
+            # password = getpass('Enter password: ')
             newAccount = Account(id, name, password)
+            # print(id, name, password)
 
             dataRequest = pickle.dumps((newAccount,))
             headerRequest = self.get_request_header('register', len(dataRequest))
@@ -170,21 +251,23 @@ class Chat:
             response = pickle.loads(response)
 
             if response[0] == 'failed':
-                self.register('Account is already Exist\n')
+                # self.register('Account is already Exist\n')
+                print(response)
             else:
-                self.dasboard('Account Created, you\'re login now\n', response[1])
+                # self.dasboard('Account Created, you\'re login now\n', response[1])
+                print(response)
             return
         except KeyboardInterrupt:
             return self.welcome_page()
 
-    def login(self, status):
+    def login(self, id, password):
         try:
-            self.header_page()
-            print('Login to chat\n')
-            print(status, end='')
+            # self.header_page()
+            # print('Login to chat\n')
+            # print(status, end='')
 
-            id = input('Enter username: ')
-            password = getpass('Enter password: ')
+            # id = input('Enter username: ')
+            # password = getpass('Enter password: ')
 
             dataRequest = pickle.dumps((id, password))
             headerRequest = self.get_request_header('login', len(dataRequest))
@@ -194,9 +277,12 @@ class Chat:
             response = pickle.loads(response)
 
             if response[0] == 'failed':
-                self.login('Login Failed, please check your credential\n')
+                # self.login('Login Failed, please check your credential\n')
+                print(response)
             else:
-                self.dasboard('Login success\n', response[1])
+                # self.dasboard('Login success\n', response[1])
+                self.set_account(response[1])
+                print(response)
             return
         except KeyboardInterrupt:
             return self.welcome_page()
@@ -214,3 +300,18 @@ class Chat:
                 print('Byee!!')
         except KeyboardInterrupt:
             sys.exit()
+
+    def set_account(self, account):
+        self.account = account
+
+    def get_account_id(self):
+        try:
+            return self.account.get_id()
+        except:
+            print('User not set yet!')
+
+    def get_account_name(self):
+        try:
+            return self.account.get_name()
+        except:
+            print('User not set yet!')

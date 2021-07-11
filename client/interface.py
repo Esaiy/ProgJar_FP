@@ -1,5 +1,7 @@
+from threading import Thread
 from tkinter import *
 from tkinter import font
+from tkinter import messagebox
 from functools import WRAPPER_ASSIGNMENTS, partial
 import os
 
@@ -8,16 +10,18 @@ class GameInterface:
         self.title = 'Game, mungkin'
         self.state = False
         self.chat = chat
+        self.chat.set_interface(self)
         # self.chat.welcome_page()
 
         self.tkWindow = Tk()
         self.tkWindow.title(self.title)
-        if os.name == 'nt':
+        
+        try:
             self.tkWindow.state('zoomed')
-        else:
+        except:
             self.tkWindow.attributes('-zoomed', True)
 
-        self.tkWindow.resizable(False, False)
+        # self.tkWindow.resizable(False, False)
         self.tkWindow.bind("<F11>", self.toggle_fullscreen)
         self.tkWindow.bind("<Escape>", self.end_fullscreen)
         
@@ -25,7 +29,7 @@ class GameInterface:
         self.frame.pack(side=TOP)
 
         self.special_button = Button(self.frame, text="Home", command=self.set_auth_interface)
-        self.special_button.pack()
+        self.special_button.pack(side=LEFT, anchor="nw")
         
         self.tkWindow.update()
         self.width= self.tkWindow.winfo_width()
@@ -80,6 +84,7 @@ class GameInterface:
         button_auth.pack()
 
         self.main_frame.pack(fill= BOTH, expand=True)
+        self.show_chat()
 
     def set_register_interface(self):
         self.forget_current_frame()
@@ -105,8 +110,19 @@ class GameInterface:
         password_entry = Entry(register_frame, bd=5, show="*")
         password_entry.grid(column=1,row=3)
         #button
-        submit_button = Button(register_frame, text="Submit")
+        submit_button = Button(register_frame, text="Submit", command=partial(
+            self.register,
+            username_entry,
+            name_entry,
+            password_entry
+        ))
         submit_button.grid(column=0, row=4)
+        
+
+    def register(self, username, name, password):
+        self.chat.register(username.get(), name.get(), password.get())
+        self.show_alert("Register Berhasil", "Akun Berhasil Register")
+        self.set_login_interface()
 
     def set_login_interface(self):
         self.forget_current_frame()
@@ -121,19 +137,23 @@ class GameInterface:
         username_label.grid(column=0,row=1)
         username_entry = Entry(login_frame, bd=5)
         username_entry.grid(column=1,row=1)
-        #name
-        name_label = Label(login_frame, text="Nama")
-        name_label.grid(column=0,row=2)
-        name_entry = Entry(login_frame, bd=5)
-        name_entry.grid(column=1,row=2)
         #password
         password_label = Label(login_frame, text="Password")
         password_label.grid(column=0,row=3)
         password_entry = Entry(login_frame, bd=5, show="*")
         password_entry.grid(column=1,row=3)
         #button
-        submit_button = Button(login_frame, text="Submit")
+        submit_button = Button(login_frame, text="Submit", command=partial(
+            self.login,
+            username_entry,
+            password_entry
+        ))
         submit_button.grid(column=0, row=4)
+
+    def login(self, id, password):
+        self.chat.login(id.get(), password.get())
+        self.show_alert("Login Berhasil", "Akun Berhasil Login")
+        self.set_main_interface()
 
         
     def forget_current_frame(self):
@@ -163,12 +183,12 @@ class GameInterface:
         scrollbar = Scrollbar(message_frame)
         scrollbar.pack( side = RIGHT, fill = Y )
 
-        mylist = Text(message_frame, yscrollcommand = scrollbar.set, wrap=WORD, width=35, height=40, bd=5)
-        for line in range(100):
-            mylist.insert(END, "This is line numberadfadfasdf " + str(line) + "\n")
+        self.mylist = Text(message_frame, yscrollcommand = scrollbar.set, wrap=WORD, width=35, height=40, bd=5)
+        # for line in range(100):
+        #     self.mylist.insert(END, "This is line numberadfadfasdf " + str(line) + "\n")
 
-        mylist.pack(side=LEFT, fill= BOTH, expand=True)
-        scrollbar.config( command = mylist.yview )
+        self.mylist.pack(side=LEFT, fill= BOTH, expand=True)
+        scrollbar.config( command = self.mylist.yview )
         
         #input frame
         input_frame = Frame(frame)
@@ -179,17 +199,25 @@ class GameInterface:
         entry = Entry(input_frame, bd=5)
         entry.grid(row=0, column=0)
         button = Button(input_frame, text="Send", command=partial(
-            self.new_line,
-            mylist
+            self.send_chat,
+            entry
         ))
         button.grid(row=0, column=1)
 
-    def new_line(self, mylist):
-        mylist.insert(END, "newlinenewlinenewlinenewlinenewlinenewlinenewline\n")
-        mylist.yview(END)
+    def new_line(self, message):
+        self.mylist.insert(END, message + "\n")
+        self.mylist.yview(END)
 
     def show_chat(self):
-        return
+        t1 = Thread(target=self.chat.read_message)
+        t1.start()
+
+    def send_chat(self, entry):
+        message = entry.get()
+        entry.delete(0, END)
+        self.new_line("<{}> {}: {}".format(self.chat.get_account_id(), self.chat.get_account_name(), message))
+        self.chat.chat_game(message)
+
     def show_image(self):
         return
     def show_message(self):
@@ -198,8 +226,10 @@ class GameInterface:
         return
     def clear_message(self):
         return
-    def show_alert(self):
-        return
+
+    def show_alert(self, title, message):
+        messagebox.showinfo(title, message)
+
     def show_lie_modal(self):
         return
     def show_waiting_modal(self):
