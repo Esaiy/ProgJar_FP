@@ -26,7 +26,7 @@ class Account:
 
 def clear(args):
     if os.name == 'nt':
-        _ = system('cls')
+        _ = os.system('cls')
     else:
         _ = os.system('clear')
 
